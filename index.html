@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda Eventos</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>AGENDA EVENTOS</h1>
+    
+    <!-- Registro -->
+    <h2>Registro</h2>
+    <form id="formularioRegistro">
+        <input type="text" id="nombreUsuarioRegistro" placeholder="Nombre de Usuario" required>
+        <input type="password" id="contrasenaRegistro" placeholder="Contraseña" required>
+        <button type="submit">Registrar</button>
+    </form>
+
+    <!-- Login -->
+    <h2>Login</h2>
+    <form id="formularioLogin">
+        <input type="text" id="nombreUsuarioLogin" placeholder="Nombre de Usuario" required>
+        <input type="password" id="contrasenaLogin" placeholder="Contraseña" required>
+        <button type="formato.html">Login</button>
+    </form>
+
+    <!-- Formulario de Evento -->
+    
+    <div id="eventos" style="display: none;">
+        <form id="formularioEvento">
+            <input type="text" id="titulo" placeholder="Título" required>
+            <input type="date" id="fecha" required>
+            <textarea id="descripcion" placeholder="Descripción"></textarea>
+            <button type="submit">Agregar Evento</button>
+        </form>
+        <h2>Eventos Registrados</h2>
+        <ul id="listaEventos"></ul>
+    </div>
+
+    <script>
+        let token = '';
+
+        document.getElementById('formularioRegistro').onsubmit = function(e) {
+            e.preventDefault();
+            const nombre_usuario = document.getElementById('nombreUsuarioRegistro').value;
+            const contrasena = document.getElementById('contrasenaRegistro').value;
+            fetch('/registro', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre_usuario, contrasena })
+            })
+            .then(response => response.json())
+            .then(data => alert(data.mensaje))
+            .catch(error => console.error('Error:', error));
+            limpiarCampos();
+        };
+
+        document.getElementById('formularioLogin').onsubmit = function(e) {
+            e.preventDefault();
+            const nombre_usuario = document.getElementById('nombreUsuarioLogin').value;
+            const contrasena = document.getElementById('contrasenaLogin').value;
+            fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre_usuario, contrasena })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.token) {
+                    token = data.token;
+                    document.getElementById('eventos').style.display = 'block';
+                    cargarEventos();
+                } else {
+                    alert(data.error);
+                }
+                limpiarCampos();
+
+            })
+            .catch(error => console.error('Error:', error));
+        };
+
+        document.getElementById('formularioEvento').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const titulo = document.getElementById('titulo').value;
+            const fecha = document.getElementById('fecha').value;
+            const descripcion = document.getElementById('descripcion').value;
+
+            fetch('/eventos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ titulo, fecha, descripcion })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error); // Mostrar mensaje de error
+                } else {
+                    alert(data.mensaje);
+                    cargarEventos();
+                    limpiarCampos();
+                }
+            });
+        });
+
+        function limpiarCampos() {
+    document.getElementById('titulo').value = '';
+    document.getElementById('fecha').value = '';
+    document.getElementById('descripcion').value = '';
+    document.getElementById('nombreUsuarioLogin').value='';
+    document.getElementById('contrasenaLogin').value='';
+    document.getElementById('nombreUsuarioRegistro').value='';
+    document.getElementById('contrasenaRegistro').value='';
+
+    }
+        function cargarEventos() {
+            fetch('/eventos', {
+                headers: { 'Authorization': token }
+            })
+            .then(response => {
+        // Verifica si la respuesta es correcta antes de intentar convertirla en JSON
+        if (!response.ok) {
+            throw new Error('Error en la solicitud: ' + response.statusText);
+        }
+        return response.json();
+        })
+        .then(data => {
+        const listaEventos = document.getElementById('listaEventos');
+        listaEventos.innerHTML = '';
+        data.eventos.forEach(evento => {
+            const li = document.createElement('li');
+            li.textContent = `${evento.titulo} - ${evento.fecha}: ${evento.descripcion}`;
+
+                    // Botón para editar
+                    const botonEditar = document.createElement('button');
+                    botonEditar.textContent = 'Editar';
+                    botonEditar.onclick = () => editarEvento(evento.id);
+
+                    // Botón para eliminar
+                    const botonEliminar = document.createElement('button');
+                    botonEliminar.textContent = 'Eliminar';
+                    botonEliminar.onclick = () => eliminarEvento(evento.id);
+
+                    li.appendChild(botonEditar);
+                    li.appendChild(botonEliminar);
+                    listaEventos.appendChild(li);
+                });
+            });
+        }
+
+        function editarEvento(id) {
+            const titulo = prompt('Nuevo título:');
+            const fecha = prompt('Nueva fecha (YYYY-MM-DD):');
+            const descripcion = prompt('Nueva descripción:');
+
+            fetch(`/eventos/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token
+                },
+                body: JSON.stringify({ titulo, fecha, descripcion })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.mensaje);
+                cargarEventos();
+            });
+        }
+
+        function eliminarEvento(id) {
+            if (confirm('¿Estás seguro de que deseas eliminar este evento?')) {
+                fetch(`/eventos/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': token }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.mensaje);
+                    cargarEventos();
+                });
+            }
+        }    
+    </script>
+</body>
+</html>
